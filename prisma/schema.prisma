@@ -1,0 +1,177 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ENUMS
+enum UserRole {
+  HOUSEHOLD
+  COLLECTION_PARTNER
+  RECYCLING_ORG
+  ADMIN
+}
+
+enum DeclarationStatus {
+  READY
+  COMPLETED
+  CANCELED
+}
+
+enum TransactionType {
+  SCHEDULED_COLLECTION
+  DROP_OFF
+}
+
+// MODELS
+// User and Identity
+model User {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  password_hash String
+  phone         String
+  role          UserRole
+  device_token  String? // FCM Push Notification token
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  householdProfile    HouseholdProfile?
+  partnerProfile      CollectionPartnerProfile?
+  recyclingOrgProfile RecyclingOrgProfile?
+}
+
+// Household Profile
+model HouseholdProfile {
+  id           String   @id @default(uuid())
+  user_id      String   @unique
+  address      String
+  latitude     Float
+  longitude    Float
+  service_zone String // e.g., "Ikeja Zone A" (used to group scheduled demand)
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  declarations ScheduledDeclaration[]
+  transactions CollectionTransaction[]
+}
+
+// Collection Partner Profile (Aggregator / Local Operator)
+model CollectionPartnerProfile {
+  id            String   @id @default(uuid())
+  user_id       String   @unique
+  company_name  String
+  is_verified   Boolean  @default(false)
+  badge_title   String? // e.g., "Verified Community Partner"
+  address       String // Physical Drop-Off hub location
+  latitude      Float
+  longitude     Float
+  dropoff_hours String? // e.g., "Mon-Sat 8AM - 5PM"
+  service_zones String[] // Array of zones covered for scheduled collection
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  prices       PartnerMaterialPrice[]
+  schedules    PartnerSchedule[]
+  declarations ScheduledDeclaration[]
+  transactions CollectionTransaction[]
+}
+
+// Recycling Organisation Profile
+model RecyclingOrgProfile {
+  id         String   @id @default(uuid())
+  user_id    String   @unique
+  org_name   String
+  address    String
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+}
+
+// Material Categories (PET Plastics, Aluminum Cans, Glass, etc.)
+model MaterialCategory {
+  id         String   @id @default(uuid())
+  name       String   @unique
+  unit       String   @default("kg")
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  prices PartnerMaterialPrice[]
+  items  TransactionItem[]
+}
+
+// Partner-Published Buying Prices
+model PartnerMaterialPrice {
+  id           String   @id @default(uuid())
+  partner_id   String
+  category_id  String
+  price_per_kg Float // Buying price per kg published by partner
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  partner  CollectionPartnerProfile @relation(fields: [partner_id], references: [id], onDelete: Cascade)
+  category MaterialCategory         @relation(fields: [category_id], references: [id], onDelete: Cascade)
+}
+
+// Partner Published Schedules
+model PartnerSchedule {
+  id             String   @id @default(uuid())
+  partner_id     String
+  service_zone   String // e.g., "Ikeja Zone A"
+  collection_day String // e.g., "EVERY_TUESDAY"
+  notes          String?
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+
+  partner CollectionPartnerProfile @relation(fields: [partner_id], references: [id], onDelete: Cascade)
+}
+
+// Household Ready Declaration (Scheduled Collection Demand)
+model ScheduledDeclaration {
+  id           String            @id @default(uuid())
+  household_id String
+  partner_id   String
+  service_zone String
+  status       DeclarationStatus @default(READY)
+  created_at   DateTime          @default(now())
+  updated_at   DateTime          @updatedAt
+
+  household HouseholdProfile         @relation(fields: [household_id], references: [id], onDelete: Cascade)
+  partner   CollectionPartnerProfile @relation(fields: [partner_id], references: [id], onDelete: Cascade)
+}
+
+// Transaction Record (Cash Paid on the Spot)
+model CollectionTransaction {
+  id                   String          @id @default(uuid())
+  partner_id           String
+  household_id         String
+  transaction_type     TransactionType // SCHEDULED_COLLECTION or DROP_OFF
+  total_cash_paid      Float // Amount paid in cash on the spot
+  is_confirmed_by_home Boolean         @default(false)
+  logged_at            DateTime        @default(now())
+  updated_at           DateTime        @updatedAt
+
+  partner   CollectionPartnerProfile @relation(fields: [partner_id], references: [id], onDelete: Cascade)
+  household HouseholdProfile         @relation(fields: [household_id], references: [id], onDelete: Cascade)
+
+  items TransactionItem[]
+}
+
+// 10. Transaction Line Items
+model TransactionItem {
+  id             String @id @default(uuid())
+  transaction_id String
+  category_id    String
+  weight_kg      Float
+  price_per_kg   Float
+  subtotal_cash  Float
+
+  transaction CollectionTransaction @relation(fields: [transaction_id], references: [id], onDelete: Cascade)
+  category    MaterialCategory      @relation(fields: [category_id], references: [id], onDelete: Cascade)
+}

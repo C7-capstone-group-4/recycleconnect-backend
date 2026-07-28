@@ -12,8 +12,8 @@ export const uploadToCloudinary = (fileBuffer, folder='recycleconnect') => {
         const uploadStream = cloudinary.uploader.upload_stream(
             { folder },
             (error, result) => {
-                if (error) return reject(errpr);
-                resolve(result.score_url);
+                if (error) return reject(error);
+                resolve(result.secure_url);
             }
         );
         uploadStream.end(fileBuffer);

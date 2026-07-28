@@ -1,5 +1,4 @@
-import req from "express/lib/request";
-import { uploadToCloudinary } from "../../utils/cloudinaryUploader";
+import { uploadToCloudinary } from "../../utils/cloudinaryUploader.js";
 
 
 export const handleImageUpload = async (req, res) => {
@@ -20,7 +19,7 @@ export const handleImageUpload = async (req, res) => {
             success: true,
             message: "Image uploaded successfully",
             data: {
-                image_url: "Image uploaded successfully",
+                image_url: imageUrl,
             },
         });
     } catch (error) {

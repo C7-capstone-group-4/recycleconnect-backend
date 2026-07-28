@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import uploadRoutes from './src/modules/upload/upload.routes.js'
+import recyclerRoutes from './src/modules/recyclers/recycler.routes.js'
 
 
 const app = express();
@@ -16,7 +17,9 @@ app.get('/health', (req, res) => {
     res.status(200).json({ status: 'OK', message: 'RecycleConnect Backend is operational' });
 });
 
-// Register uploade route
+// Register uploaded route
 app.use('/api/v1/upload', uploadRoutes);
+app.use('/api/v1/recyclers', recyclerRoutes);
+app.use('/api/v1/partners', recyclerRoutes);  // Shared route prefix for partner interest response
 
 export default app;

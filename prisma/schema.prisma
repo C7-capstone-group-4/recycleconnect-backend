@@ -96,7 +96,7 @@ model CollectionPartnerProfile {
   business_name    String
   partner_type     PartnerType @default(EXISTING_OPERATOR)
   id_type          String // e.g. "NIN", "VOTERS_CARD", "DRIVERS_LICENSE"
-  id_numer         String
+  id_number        String
   id_photo_url     String // Cloudinary URL
   vehicle_type     String
   storage_capacity String

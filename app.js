@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import uploadRoutes from './src/modules/upload/upload.routes.js'
 
 
 const app = express();
@@ -14,5 +15,8 @@ app.use(express.json());
 app.get('/health', (req, res) => {
     res.status(200).json({ status: 'OK', message: 'RecycleConnect Backend is operational' });
 });
+
+// Register uploade route
+app.use('/api/v1/upload', uploadRoutes);
 
 export default app;

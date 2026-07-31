@@ -1,22 +1,15 @@
-const prisma = require("../config/db");
+import prisma from "../config/db.js";
 
-// Firebase Admin SDK is initialized elsewhere in src/config/firebase.js (Package 1).
-// This module assumes `admin` is available there; import lazily to avoid
-// circular init issues if firebase isn't configured in dev.
 let admin;
 try {
-  admin = require("../config/firebase");
+  const mod = await import("../config/firebase.js");
+  admin = mod.default;
 } catch (_) {
   admin = null;
 }
 
-/**
- * Notifies a partner that a new household has marked materials ready
- * in one of their service zones. Best-effort — failures are swallowed
- * by the caller (demand.service.js) so they never block the API response.
- */
 async function notifyPartnerOfDemand(partnerId) {
-  if (!admin) return; // FCM not configured in this environment (e.g. dev/test)
+  if (!admin) return;
 
   const partner = await prisma.collectionPartnerProfile.findUnique({
     where: { id: partnerId },
@@ -34,4 +27,4 @@ async function notifyPartnerOfDemand(partnerId) {
   });
 }
 
-module.exports = { notifyPartnerOfDemand };
+export { notifyPartnerOfDemand };

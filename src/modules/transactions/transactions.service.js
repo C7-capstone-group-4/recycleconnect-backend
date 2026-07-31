@@ -1,7 +1,7 @@
-const prisma = require('../../config/db');
-const AppError = require('../../utils/AppError');
-const { sendNotification } = require('../../utils/fcmNotifier');
-const wallet = require('./wallet.service');
+import prisma from '../../config/db.js';
+import AppError from '../../utils/AppError.js';
+import { sendNotification } from '../../utils/fcmNotifier.js';
+import wallet from './wallet.service.js';
 
 const VALID_TRANSACTION_TYPES = ['SCHEDULED_COLLECTION', 'DROP_OFF'];
 const VALID_SELLER_TYPES = ['REGISTERED_HOUSEHOLD', 'GENERAL_UNREGISTERED'];
@@ -385,7 +385,7 @@ async function getPartnerHistory(userId) {
   }));
 }
 
-module.exports = {
+export default {
   lookupHouseholdByReferenceCode,
   logTransactions,
   confirmTransaction,

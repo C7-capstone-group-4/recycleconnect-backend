@@ -1,4 +1,4 @@
-const admin = require('../config/firebase');
+import admin from '../config/firebase.js';
 
 /**
  * Sends a push notification to a single device.
@@ -17,4 +17,4 @@ async function sendNotification(deviceToken, title, body) {
   return admin.messaging().send(message);
 }
 
-module.exports = { sendNotification };
+export { sendNotification };

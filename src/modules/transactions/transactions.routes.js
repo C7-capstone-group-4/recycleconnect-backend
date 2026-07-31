@@ -1,6 +1,6 @@
-const express = require('express');
-const { protect, restrictTo } = require('../../middlewares/auth');
-const controller = require('./transactions.controller');
+import express from 'express';
+import { protect, restrictTo } from '../../middlewares/auth.js';
+import controller from './transactions.controller.js';
 
 // Partner-facing routes, mounted at /api/v1/partners
 const partnerRouter = express.Router();
@@ -14,4 +14,4 @@ householdRouter.use(protect, restrictTo('HOUSEHOLD'));
 householdRouter.patch('/transactions/:id/confirm', controller.confirmTransaction);
 householdRouter.get('/history', controller.getHouseholdHistory);
 
-module.exports = { partnerRouter, householdRouter };
+export default { partnerRouter, householdRouter };

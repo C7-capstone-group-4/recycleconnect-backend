@@ -1,4 +1,4 @@
-const AppError = require('../../utils/AppError');
+import AppError from '../../utils/AppError.js';
 
 /**
  * Minimal internal wallet ledger, scoped to what Package 3's confirm-and-settle
@@ -88,7 +88,7 @@ async function creditWallet(tx, wallet, amount, referenceType, referenceId) {
   return updated;
 }
 
-module.exports = {
+export default {
   getOrCreateHouseholdWallet,
   getOrCreatePartnerWallet,
   debitWallet,

@@ -1,10 +1,6 @@
-const prisma = require("../../config/db");
-const ApiError = require("../../utils/ApiError");
+import prisma from "../../config/db.js";
+import ApiError from "../../utils/ApiError.js";
 
-/**
- * Publish or update a partner's buying price for a material category.
- * Upsert semantics: one active price per (partner, category) pair.
- */
 async function setPartnerPrice(partnerId, { category_id, price_per_kg }) {
   if (!category_id || price_per_kg === undefined) {
     throw new ApiError(
@@ -47,9 +43,6 @@ async function setPartnerPrice(partnerId, { category_id, price_per_kg }) {
   };
 }
 
-/**
- * Publish a recurring collection schedule for a partner's service zone.
- */
 async function publishSchedule(
   partnerId,
   { service_zone, collection_day, time_window, notes },
@@ -75,13 +68,8 @@ async function publishSchedule(
   return schedule;
 }
 
-/**
- * Browse partners serving a given zone, with their published prices
- * and next collection schedule attached.
- */
 async function browsePartnersByZone(serviceZone) {
   const where = { isVerified: true };
-  // service_zones is stored as a string array/JSON on the partner profile
   const partners = await prisma.collectionPartnerProfile.findMany({
     where,
     include: {
@@ -114,8 +102,4 @@ async function browsePartnersByZone(serviceZone) {
   }));
 }
 
-module.exports = {
-  setPartnerPrice,
-  publishSchedule,
-  browsePartnersByZone,
-};
+export { setPartnerPrice, publishSchedule, browsePartnersByZone };

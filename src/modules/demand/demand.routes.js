@@ -1,9 +1,9 @@
-const express = require("express");
-const router = express.Router();
+import express from "express";
+import * as demandController from "./demand.controller.js";
+import { authenticate } from "../../middlewares/auth.js";
+import { authorize } from "../../middlewares/rbac.js";
 
-const demandController = require("./demand.controller");
-const { authenticate } = require("../../middlewares/auth");
-const { authorize } = require("../../middlewares/rbac");
+const router = express.Router();
 
 // Household: mark materials as ready ahead of collection day
 router.post(
@@ -29,4 +29,4 @@ router.get(
   demandController.getPartnerDemand,
 );
 
-module.exports = router;
+export default router;

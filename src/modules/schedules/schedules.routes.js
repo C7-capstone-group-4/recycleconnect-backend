@@ -1,11 +1,10 @@
-const express = require("express");
+import express from "express";
+import * as schedulesController from "./schedules.controller.js";
+import { authenticate } from "../../middlewares/auth.js";
+import { authorize } from "../../middlewares/rbac.js";
+
 const router = express.Router();
 
-const schedulesController = require("./schedules.controller");
-const { authenticate } = require("../../middlewares/auth");
-const { authorize } = require("../../middlewares/rbac");
-
-// Partner: publish/update buying price per material category
 router.post(
   "/partners/prices",
   authenticate,
@@ -13,7 +12,6 @@ router.post(
   schedulesController.setPartnerPrice,
 );
 
-// Partner: publish recurring collection schedule
 router.post(
   "/partners/schedules",
   authenticate,
@@ -21,7 +19,6 @@ router.post(
   schedulesController.publishSchedule,
 );
 
-// Household: browse partners, prices, and schedules in their zone
 router.get(
   "/households/partners",
   authenticate,
@@ -29,4 +26,4 @@ router.get(
   schedulesController.browsePartners,
 );
 
-module.exports = router;
+export default router;

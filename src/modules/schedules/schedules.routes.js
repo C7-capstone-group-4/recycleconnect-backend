@@ -1,6 +1,6 @@
-const express = require("express");
-const { protect, restrictTo } = require("../../middlewares/auth");
-const controller = require("./schedules.controller");
+import express from  "express";
+import { protect, restrictTo } from "../../middlewares/auth.js";
+import controller from "./schedules.controller.js";
 
 /**
  * NOTE ON ENDPOINT NAMING:
@@ -27,4 +27,4 @@ householdRouter.use(protect, restrictTo("HOUSEHOLD"));
 householdRouter.get("/prices", controller.listPricesForHouseholds);
 householdRouter.get("/partners", controller.listPartnersForHouseholds);
 
-module.exports = { partnerRouter, householdRouter };
+export default { partnerRouter, householdRouter };

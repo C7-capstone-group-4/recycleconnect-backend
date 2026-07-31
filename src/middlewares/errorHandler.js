@@ -28,7 +28,7 @@ function errorHandler(err, req, res, next) {
 
   // Fallback: unexpected/programming error — log full detail server-side,
   // return a generic message to the client.
-  console.error('UNEXPECTED ERROR 💥', err);
+  console.error('UNEXPECTED ERROR ', err);
   return sendError(res, 500, 'Something went wrong. Please try again later.', 'INTERNAL_SERVER_ERROR');
 }
 

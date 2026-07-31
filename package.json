@@ -1,0 +1,32 @@
+{
+  "name": "recycleconnect-backend",
+  "version": "1.0.0",
+  "description": "Backend logic for  RecycleConnect",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "nodemon server.js",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/C7-capstone-group-4/recycleconnect-backend.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/C7-capstone-groupc4/recycleconnect-backend/issues"
+  },
+  "homepage": "https://github.com/C7-capstone-group-4/recycleconnect-backend#readme",
+  "dependencies": {
+    "@prisma/client": "^6.16.2",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14",
+    "prisma": "^6.19.3"
+  }
+}

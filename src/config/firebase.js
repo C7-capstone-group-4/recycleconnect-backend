@@ -1,4 +1,4 @@
-const admin = require('firebase-admin');
+import admin from 'firebase-admin';
 
 // Expects FIREBASE_SERVICE_ACCOUNT_KEY to be a JSON string of the service
 // account credentials (e.g. stored as a single-line env var, or loaded from
@@ -15,4 +15,4 @@ if (!admin.apps.length) {
   });
 }
 
-module.exports = admin;
+export default admin;

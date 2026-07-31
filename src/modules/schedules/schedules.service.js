@@ -1,5 +1,5 @@
-const prisma = require("../../config/db");
-const AppError = require("../../utils/AppError");
+import prisma from "../../config/db.js";
+import AppError from "../../utils/AppError.js";
 
 /**
  * Fetch the CollectionPartnerProfile for a given user id, or throw.
@@ -210,7 +210,7 @@ async function getAreaDemand(userId, { service_zone }) {
   };
 }
 
-module.exports = {
+export default {
   getPartnerProfileOrThrow,
   publishPrice,
   listPricesForHouseholds,

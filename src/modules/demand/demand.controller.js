@@ -1,5 +1,5 @@
-const demandService = require("./demand.service");
-const { successResponse } = require("../../utils/responseHelpers");
+import demandService from "./demand.service";
+import successResponse from "../../utils/responseHelpers";
 
 /**
  * POST /api/v1/households/declarations
@@ -53,8 +53,4 @@ async function getPartnerDemand(req, res, next) {
   }
 }
 
-module.exports = {
-  markReady,
-  cancelDeclaration,
-  getPartnerDemand,
-};
+export { markReady, cancelDeclaration, getPartnerDemand };

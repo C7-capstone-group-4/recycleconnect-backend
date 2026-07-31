@@ -1,12 +1,7 @@
-const prisma = require("../../config/db");
-const ApiError = require("../../utils/ApiError");
-const { notifyPartnerOfDemand } = require("../../utils/fcmNotifier");
+import prisma from "../../config/db.js";
+import ApiError from "../../utils/ApiError.js";
+import { notifyPartnerOfDemand } from "../../utils/fcmNotifier.js";
 
-/**
- * Household marks materials as READY for the next scheduled collection.
- * Business rule: a household cannot have two active (READY) declarations
- * to the same partner at once — must be confirmed or cancelled first.
- */
 async function markReady(householdId, { partner_id, service_area, materials }) {
   if (!partner_id || !service_area) {
     throw new ApiError(
@@ -55,7 +50,6 @@ async function markReady(householdId, { partner_id, service_area, materials }) {
     },
   });
 
-  // Fire-and-forget push notification to the partner (non-blocking)
   notifyPartnerOfDemand(partner_id).catch(() => {});
 
   return {
@@ -64,9 +58,6 @@ async function markReady(householdId, { partner_id, service_area, materials }) {
   };
 }
 
-/**
- * Household cancels their own active declaration before collection day.
- */
 async function cancelDeclaration(householdId, declarationId) {
   const declaration = await prisma.scheduledDeclaration.findUnique({
     where: { id: declarationId },
@@ -89,10 +80,6 @@ async function cancelDeclaration(householdId, declarationId) {
   });
 }
 
-/**
- * Partner views accumulated ready-household demand ahead of a collection trip,
- * scoped to their own service area(s).
- */
 async function getPartnerDemand(partnerId, serviceZone) {
   const where = {
     partnerId,
@@ -102,9 +89,7 @@ async function getPartnerDemand(partnerId, serviceZone) {
 
   const declarations = await prisma.scheduledDeclaration.findMany({
     where,
-    include: {
-      household: true,
-    },
+    include: { household: true },
     orderBy: { createdAt: "asc" },
   });
 
@@ -123,8 +108,4 @@ async function getPartnerDemand(partnerId, serviceZone) {
   };
 }
 
-module.exports = {
-  markReady,
-  cancelDeclaration,
-  getPartnerDemand,
-};
+export { markReady, cancelDeclaration, getPartnerDemand };

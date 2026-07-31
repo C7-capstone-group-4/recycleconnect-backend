@@ -4,7 +4,7 @@ import prisma from "../../config/db.js";
 import { signToken } from '../../utils/jwt.js';
 import { generateAndSendOTP, verifyOTP } from "../../utils/otpService.js";
 import { generateReferenceCode } from "../../utils/referenceCode.js";
-import { validateRequiredFields } from "../../utils/validator.js";
+import { validateRequiredFields, isValidPhoneNumber } from "../../utils/validator.js";
 
 
 // Temporary memory store for Password reset tokes (email -> { resetToken, expiresAt })
@@ -26,12 +26,24 @@ export const sendOTP = async (req, res) => {
             });
         }
 
-        const { code, cooldown_seconds } = await generateAndSendOTP(phone);
+        // Phone format validation
+        if (!isValidPhoneNumber(phone)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Please provide a valid phone number (e.g. +2348012345678 or 08012345678',
+                error: 'BAD_REQUEST',
+            });
+        }
+
+        const otpData = await generateAndSendOTP(phone);
 
         return res.status(200).json({
             success: true,
-            message: 'OTP code sent successfully to ${phone}',
-            data: { cooldown_seconds },
+            message: `OTP code sent successfully to ${phone}`,
+            data: {
+                cooldown_seconds: otpData.cooldown_seconds,
+                ...(process.env.NODE_ENV === 'development' && { dev_otp: otpData.code }),  // Show otp in dev mode for Postman testing
+            },
         });
     } catch (error) {
         return res.status(400).json({
@@ -48,7 +60,7 @@ export const sendOTP = async (req, res) => {
  */
 export const registerHousehold = async (req, res) => {
     try {
-        const requiredFields = validateRequiredFields(req.body, [
+        const missingFields = validateRequiredFields(req.body, [
             'phone',
             'otp',
             'pin',
@@ -64,6 +76,17 @@ export const registerHousehold = async (req, res) => {
                 message: `Missing required fields(s): ${missingFields.join(', ')}`,
                 error: 'BAD_REQUEST',
                 missing_fields: missingFields,  // Send array to frontend
+            });
+        }
+
+        const { phone, otp, pin, first_name, state, area, landmark, service_zone } = req.body;
+
+        // Validate phone number format
+        if (!isValidPhoneNumber(phone)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Please provide a valid phone number (e.g., +2348012345678 or 08012345678).',
+                error: 'BAD_REQUEST',
             });
         }
 
@@ -268,7 +291,7 @@ export const registerPartner = async (req, res) => {
 
             await tx.wallet.create({
                 data: {
-                    user_id: new_user.id,
+                    user_id: newUser.id,
                     balance: 0.0,
                 },
             });
@@ -317,11 +340,21 @@ export const registerRecycler = async (req, res) => {
         }
 
         // Email format validation
+        const normalizedEmail = email.toLowerCase().trim();
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(email.trim())) {
+        if (!emailRegex.test(normalizedEmail)) {
             return res.status(400).json({
                 success: false,
                 message: 'Please provide a valid email address.',
+                error: 'BAD_REQUEST',
+            });
+        }
+
+        // Phone format validation
+        if (!isValidPhoneNumber(phone)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Please provide a valid phone number (e.g., +2348012345678 or 08012345678)',
                 error: 'BAD_REQUEST',
             });
         }
@@ -336,11 +369,21 @@ export const registerRecycler = async (req, res) => {
         }
 
         // Check if email already exists
-        const existingUser = await prisma.user.findUnique({ where: { email: email.toLowerCase().trim() } });
+        const existingUser = await prisma.user.findUnique({ where: { email: normalizedEmail } });
         if (existingUser) {
             return res.status(400).json({
                 success: false,
                 message: 'An account with this email address already exists.',
+                error: 'BAD_REQUEST',
+            });
+        }
+
+        // Check if phone already exists
+        const existingPhone = await prisma.user.findUnique({ where: { phone } });
+        if (existingPhone) {
+            return res.status(400).json({
+                success: false,
+                message: 'An account with this phone number already exists.',
                 error: 'BAD_REQUEST',
             });
         }
@@ -350,7 +393,7 @@ export const registerRecycler = async (req, res) => {
         const result = await prisma.$transaction(async (tx) => {
             const newUser = await tx.user.create({
                 data: {
-                    email,
+                    email: normalizedEmail,
                     phone,
                     password_hash: passwordHash,
                     role: 'RECYCLING_ORG',
@@ -530,7 +573,7 @@ export const loginWithPassword = async (req, res) => {
  * Forgotten PIN recovery
  * POST  /api/v1/auth/forgot-pin
  */
-export const forgotPin = async (req, result) => {
+export const forgotPin = async (req, res) => {
     try {
         const { phone, otp, new_pin } = req.body;
 

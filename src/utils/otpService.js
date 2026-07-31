@@ -13,7 +13,7 @@ export const generateAndSendOTP = async (phone) => {
 
     // Rate limiting check: Enforce a 30-second resend cooldown
     if (existingRecord && (now - existingRecord.lastSentAt) < RESEND_COOLDOWN) {
-        const secondLeft = Math.ceil((RESEND_COOLDOWN - (now - existingRecord.lastSentAt)) / 1000);
+        const secondsLeft = Math.ceil((RESEND_COOLDOWN - (now - existingRecord.lastSentAt)) / 1000);
         throw new Error(`Please wait ${secondsLeft} seconds before requesting a new OTP.`);
     }
 
@@ -29,7 +29,10 @@ export const generateAndSendOTP = async (phone) => {
     });
 
     console.log(`[OTP SERVICE] 4-digit OTP for ${phone}: ${code}`);
-    return code;
+    return {
+        code,
+        cooldown_seconds: 30,
+    };
 };
 
 // Verifies OTP with single-use invalidation and max attempt enforcement

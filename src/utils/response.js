@@ -23,4 +23,4 @@ function sendError(res, statusCode, message, errorCode = 'BAD_REQUEST') {
   });
 }
 
-module.exports = { sendSuccess, sendError };
+export { sendSuccess, sendError };

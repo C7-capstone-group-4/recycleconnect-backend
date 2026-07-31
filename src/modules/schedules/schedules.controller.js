@@ -1,5 +1,5 @@
-const schedulesService = require("./schedules.service");
-const { successResponse } = require("../../utils/responseHelpers");
+import schedulesService from "./schedules.service";
+import { successResponse } from "../../utils/responseHelpers.js";
 
 /**
  * POST /api/v1/partners/prices
@@ -43,7 +43,7 @@ async function browsePartners(req, res, next) {
   }
 }
 
-module.exports = {
+export {
   setPartnerPrice,
   publishSchedule,
   browsePartners,

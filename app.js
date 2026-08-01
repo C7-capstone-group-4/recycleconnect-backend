@@ -9,7 +9,7 @@ import adminRoutes from './src/modules/admin/admin.routes.js';
 import demandRoutes from './src/modules/demand/demand.router.js';
 import scheduleRoutes from './src/modules/schedules/schedules.routes.js';
 import transactionRoutes from './src/modules/transactions/transactions.routes.js';
-
+import transactionsRoutes from './src/modules/transactions/transactions.routes.js';
 
 const app = express();
 
@@ -29,12 +29,12 @@ app.use('/api/v1/users', userRoutes);
 app.use('/api/v1/upload', uploadRoutes);
 app.use('/api/v1/recyclers', recyclerRoutes);
 app.use('/api/v1/partners', recyclerRoutes);
-app.use('/api/v1/partners', scheduleRoutes.partnerRouter);
-app.use('/api/v1/households', scheduleRoutes.householdRouter);
 app.use('/api/v1/households', demandRoutes);
 app.use('/api/v1/partners', demandRoutes);
-app.use('/api/v1/partners', transactionRoutes.partnerRouter);
-app.use('/api/v1/households', transactionRoutes.householdRouter);
 app.use('/api/v1/admin', adminRoutes);
+app.use('/api/v1/partners', scheduleRoutes.partnerRouter);
+app.use('/api/v1/households', scheduleRoutes.householdRouter);
+app.use('/api/v1/partners', transactionsRoutes.partnerRouter);
+app.use('/api/v1/households', transactionRoutes.householdRouter);
 
 export default app;

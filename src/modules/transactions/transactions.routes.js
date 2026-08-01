@@ -11,18 +11,13 @@ import {
 
 
 const partnerRouter = express.Router();
-partnerRouter.use(protect, restrictTo('COLLECTION_PARTNER'));
-partnerRouter.post('/transactions', logTransactions);
-partnerRouter.get('/history', getPartnerHistory);
+partnerRouter.post('/transactions', protect, restrictTo('COLLECTION_PARTNER'), logTransactions);
+partnerRouter.get('/history', protect, restrictTo('COLLECTION_PARTNER'), getPartnerHistory);
 
 const householdRouter = express.Router();
-
-// Reference code lookup is performed BY a COLLECTION_PARTNER
 householdRouter.get('/lookup/:refCode', protect, restrictTo('COLLECTION_PARTNER'), lookupHouseholdByReferenceCode);
-
-householdRouter.use(protect, restrictTo('HOUSEHOLD'));
-householdRouter.patch('/transactions/:id/confirm', confirmTransaction);
-householdRouter.post('/transactions/:id/dispute', disputeTransaction);
-householdRouter.get('/history', getHouseholdHistory);
+householdRouter.patch('/transactions/:id/confirm', protect, restrictTo('HOUSEHOLD'), confirmTransaction);
+householdRouter.post('/transactions/:id/dispute', protect, restrictTo('HOUSEHOLD'), disputeTransaction);
+householdRouter.get('/history', protect, restrictTo('HOUSEHOLD'), getHouseholdHistory);
 
 export default { partnerRouter, householdRouter };

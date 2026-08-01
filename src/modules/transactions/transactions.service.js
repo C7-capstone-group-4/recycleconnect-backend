@@ -101,54 +101,79 @@ function validateTransactionInput(payload) {
  * Creates single transaction inside Prisma transaction client
  */
 async function createSingleTransaction(tx, partner, payload) {
-  const sellerType = validateTransactionInput(payload);
-  const { household_id, transaction_type, items } = payload;
+    const sellerType = validateTransactionInput(payload);
+    const { household_id, transaction_type, items } = payload;
 
-  let household = null;
-  if (sellerType === 'REGISTERED_HOUSEHOLD') {
-    household = await tx.householdProfile.findUnique({ where: { id: household_id } });
-    if (!household) {
-      const err = new Error(`Household profile not found for id: ${household_id}`);
-      err.statusCode = 404;
-      err.errorType = 'NOT_FOUND';
-      throw err;
+    let household = null;
+    if (sellerType === 'REGISTERED_HOUSEHOLD') {
+        household = await tx.householdProfile.findUnique({ where: { id: household_id } });
+        if (!household) {
+            const err = new Error(`Household profile not found for id: ${household_id}`);
+            err.statusCode = 404;
+            err.errorType = 'NOT_FOUND';
+            throw err;
+        }
     }
-  }
 
-  const itemsWithSubtotals = items.map((item) => ({
-    category_id: item.category_id,
-    weight_kg: parseFloat(item.weight_kg),
-    price_per_kg: parseFloat(item.price_per_kg),
-    subtotal: Number(item.weight_kg) * Number(item.price_per_kg),
-  }));
+    // Fixed: Map subtotal_cash to match TransactionItem schema
+    const itemsWithSubtotals = items.map((item) => {
+        const weight = parseFloat(item.weight_kg);
+        const price = parseFloat(item.price_per_kg);
+        const subtotalCash = weight * price;
 
-  const totalAmount = itemsWithSubtotals.reduce((sum, i) => sum + i.subtotal, 0);
+        return {
+            category_id: item.category_id,
+            weight_kg: weight,
+            price_per_kg: price,
+            subtotal_cash: subtotalCash, // Fixed: Pass subtotal_cash
+        };
+    });
 
-  // FR-C13: Pre-fund balance validation for registered households
-  if (sellerType === 'REGISTERED_HOUSEHOLD') {
-    const partnerWallet = await walletService.getOrCreateWallet(tx, partner.user_id);
-    if (Number(partnerWallet.balance) < totalAmount) {
-      const err = new Error(`Insufficient pre-funded wallet balance to cover this household payout. Available: ₦${partnerWallet.balance}, Required: ₦${totalAmount}`);
-      err.statusCode = 400;
-      err.errorType = 'INSUFFICIENT_FUNDS';
-      throw err;
+    const totalAmount = itemsWithSubtotals.reduce((sum, i) => sum + i.subtotal_cash, 0);
+
+    // FR-C13: Pre-fund balance validation for registered households
+    if (sellerType === 'REGISTERED_HOUSEHOLD') {
+        const partnerWallet = await walletService.getOrCreateWallet(tx, partner.user_id);
+        if (Number(partnerWallet.balance) < totalAmount) {
+            const err = new Error(`Insufficient pre-funded wallet balance to cover this household payout. Available: ₦${partnerWallet.balance}, Required: ₦${totalAmount}`);
+            err.statusCode = 400;
+            err.errorType = 'INSUFFICIENT_FUNDS';
+            throw err;
+        }
     }
-  }
 
-  const transaction = await tx.collectionTransaction.create({
-    data: {
-      partner_id: partner.id,
-      household_id: sellerType === 'REGISTERED_HOUSEHOLD' ? household_id : null,
-      seller_type: sellerType,
-      transaction_type: transaction_type,
-      total_amount: totalAmount,
-      status: sellerType === 'GENERAL_UNREGISTERED' ? 'CONFIRMED' : 'PENDING_CONFIRMATION',
-      items: { create: itemsWithSubtotals },
-    },
-    include: { items: true, household: { include: { user: true } } },
-  });
+    const transaction = await tx.collectionTransaction.create({
+        data: {
+            partner_id: partner.id,
+            household_id: sellerType === 'REGISTERED_HOUSEHOLD' ? household_id : null,
+            seller_type: sellerType,
+            transaction_type: transaction_type,
+            total_amount: totalAmount,
+            status: sellerType === 'GENERAL_UNREGISTERED' ? 'CONFIRMED' : 'PENDING_CONFIRMATION',
+            items: { create: itemsWithSubtotals },
+        },
+        include: { items: true, household: { include: { user: true } } },
+    });
 
-  return transaction;
+    return transaction;
+}
+
+function formatTransaction(t) {
+    return {
+        transaction_id: t.id,
+        household_id: t.household_id,
+        seller_type: t.seller_type,
+        transaction_type: t.transaction_type,
+        total_amount: Number(t.total_amount),
+        status: t.status,
+        logged_at: t.logged_at,
+        items: t.items.map((i) => ({
+            category_id: i.category_id,
+            weight_kg: Number(i.weight_kg),
+            price_per_kg: Number(i.price_per_kg),
+            subtotal_cash: Number(i.subtotal_cash), // Fixed: Formats subtotal_cash
+        })),
+    };
 }
 
 /**
@@ -175,24 +200,6 @@ async function logTransactions(userId, body) {
   });
 
   return results.map(formatTransaction);
-}
-
-function formatTransaction(t) {
-  return {
-    transaction_id: t.id,
-    household_id: t.household_id,
-    seller_type: t.seller_type,
-    transaction_type: t.transaction_type,
-    total_amount: Number(t.total_amount),
-    status: t.status,
-    logged_at: t.logged_at,
-    items: t.items.map((i) => ({
-      category_id: i.category_id,
-      weight_kg: Number(i.weight_kg),
-      price_per_kg: Number(i.price_per_kg),
-      subtotal: Number(i.subtotal),
-    })),
-  };
 }
 
 /**

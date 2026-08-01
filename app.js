@@ -10,6 +10,7 @@ import demandRoutes from './src/modules/demand/demand.router.js';
 import scheduleRoutes from './src/modules/schedules/schedules.routes.js';
 import transactionRoutes from './src/modules/transactions/transactions.routes.js';
 import transactionsRoutes from './src/modules/transactions/transactions.routes.js';
+import walletRoutes from './src/modules/wallet/wallet.routes.js'
 
 const app = express();
 
@@ -26,6 +27,7 @@ app.get('/health', (req, res) => {
 // API Routes
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/users', userRoutes);
+app.use('/api/v1/wallet', walletRoutes);
 app.use('/api/v1/upload', uploadRoutes);
 app.use('/api/v1/recyclers', recyclerRoutes);
 app.use('/api/v1/partners', recyclerRoutes);

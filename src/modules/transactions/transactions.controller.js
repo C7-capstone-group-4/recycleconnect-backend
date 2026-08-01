@@ -1,6 +1,6 @@
-const asyncHandler = require('../../utils/asyncHandler');
-const { sendSuccess } = require('../../utils/response');
-const transactionsService = require('./transactions.service');
+import asyncHandler from '../../utils/asyncHandler.js';
+import { sendSuccess } from '../../utils/response.js';
+import transactionsService from './transactions.service.js';
 
 // POST /api/v1/partners/transactions
 const logTransactions = asyncHandler(async (req, res) => {
@@ -26,7 +26,7 @@ const getPartnerHistory = asyncHandler(async (req, res) => {
   return sendSuccess(res, 200, 'Transaction history fetched successfully', history);
 });
 
-module.exports = {
+export default {
   logTransactions,
   confirmTransaction,
   getHouseholdHistory,

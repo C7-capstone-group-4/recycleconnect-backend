@@ -1,7 +1,7 @@
-const jwt = require('jsonwebtoken');
-const AppError = require('../utils/AppError');
-const asyncHandler = require('../utils/asyncHandler');
-const prisma = require('../config/db');
+import jwt from 'jsonwebtoken';
+import AppError from '../utils/AppError.js';
+import asyncHandler from '../utils/asyncHandler.js';
+import prisma from '../config/db.js';
 
 /**
  * protect: Verifies the JWT on incoming requests and attaches the
@@ -49,4 +49,5 @@ const restrictTo = (...roles) => (req, res, next) => {
   next();
 };
 
-module.exports = { protect, restrictTo };
+export { protect, restrictTo };
+export default  { protect, restrictTo };

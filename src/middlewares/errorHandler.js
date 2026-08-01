@@ -1,4 +1,4 @@
-const { sendError } = require("../utils/response");
+import { sendError } from "../utils/response.js";
 
 /**
  * Central error handler. Any error passed to next(err) — including thrown
@@ -42,4 +42,4 @@ function errorHandler(err, req, res, next) {
   );
 }
 
-module.exports = errorHandler;
+export default errorHandler;

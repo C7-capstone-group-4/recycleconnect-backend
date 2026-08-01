@@ -1,6 +1,6 @@
-const asyncHandler = require('../../utils/asyncHandler');
-const { sendSuccess } = require('../../utils/response');
-const schedulesService = require('./schedules.service');
+import asyncHandler from '../../utils/asyncHandler.js';
+import { sendSuccess } from '../../utils/response.js';
+import schedulesService from './schedules.service.js';
 
 // POST /api/v1/partners/prices
 const publishPrice = asyncHandler(async (req, res) => {
@@ -32,7 +32,7 @@ const getAreaDemand = asyncHandler(async (req, res) => {
   return sendSuccess(res, 200, 'Area demand fetched successfully', demand);
 });
 
-module.exports = {
+export default {
   publishPrice,
   listPricesForHouseholds,
   publishSchedule,

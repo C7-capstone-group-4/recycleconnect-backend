@@ -1,6 +1,6 @@
-const prisma = require('../../config/db');
-const AppError = require('../../utils/AppError');
-const { sendNotification } = require('../../utils/fcmNotifier');
+import prisma from '../../config/db.js';
+import AppError from '../../utils/AppError.js';
+import { sendNotification } from '../../utils/fcmNotifier.js';
 
 const VALID_TRANSACTION_TYPES = ['SCHEDULED_COLLECTION', 'DROP_OFF'];
 
@@ -245,7 +245,7 @@ async function getPartnerHistory(userId) {
   }));
 }
 
-module.exports = {
+export default {
   logTransactions,
   confirmTransaction,
   getHouseholdHistory,

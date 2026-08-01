@@ -34,3 +34,5 @@ Thumbs.db
 # Build and deployment output directories
 dist/
 build/
+
+skills-lock.json

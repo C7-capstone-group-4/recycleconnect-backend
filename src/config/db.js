@@ -1,9 +1,11 @@
-const { PrismaClient } = require('@prisma/client');
+import "dotenv/config";
+import { PrismaClient } from "@prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
 
-// Reuse a single PrismaClient instance across the app (recommended by Prisma docs)
-// to avoid exhausting DB connections in dev with hot-reloading.
-const prisma = new PrismaClient({
-  log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
-});
+// Instantiate PostgreSQL driver adapter
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 
-module.exports = prisma;
+// Instantiate PrismaClient using the driver adapter
+const prisma = new PrismaClient({ adapter });
+
+export default prisma;

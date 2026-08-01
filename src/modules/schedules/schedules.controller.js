@@ -1,50 +1,55 @@
-import schedulesService from "./schedules.service";
-import { successResponse } from "../../utils/responseHelpers.js";
+import schedulesService from "./schedules.service.js";
 
-/**
- * POST /api/v1/partners/prices
- * Role: COLLECTION_PARTNER
- */
-async function setPartnerPrice(req, res, next) {
+export async function setPartnerPrice(req, res) {
   try {
-    const partnerId = req.user.partnerProfileId; // attached by auth middleware
-    const result = await schedulesService.setPartnerPrice(partnerId, req.body);
-    return successResponse(res, 200, "Buying price published successfully", result);
+    const userId = req.user.id;
+    const result = await schedulesService.setPartnerPrice(userId, req.body);
+    return res.status(200).json({
+      success: true,
+      message: "Buying price published successfully",
+      data: result,
+    });
   } catch (err) {
-    next(err);
+    return res.status(err.statusCode || 500).json({
+      success: false,
+      message: err.message || "Failed to set price",
+      error: err.errorType || "INTERNAL_SERVER_ERROR",
+    });
   }
 }
 
-/**
- * POST /api/v1/partners/schedules
- * Role: COLLECTION_PARTNER
- */
-async function publishSchedule(req, res, next) {
+export async function publishSchedule(req, res) {
   try {
-    const partnerId = req.user.partnerProfileId;
-    await schedulesService.publishSchedule(partnerId, req.body);
-    return successResponse(res, 201, "Schedule published successfully");
+    const userId = req.user.id;
+    const result = await schedulesService.publishSchedule(userId, req.body);
+    return res.status(201).json({
+      success: true,
+      message: "Schedule published successfully",
+      data: result,
+    });
   } catch (err) {
-    next(err);
+    return res.status(err.statusCode || 500).json({
+      success: false,
+      message: err.message || "Failed to publish schedule",
+      error: err.errorType || "INTERNAL_SERVER_ERROR",
+    });
   }
 }
 
-/**
- * GET /api/v1/households/partners?service_zone=Ikeja Zone A
- * Role: HOUSEHOLD
- */
-async function browsePartners(req, res, next) {
+export async function browsePartners(req, res) {
   try {
     const { service_zone } = req.query;
     const partners = await schedulesService.browsePartnersByZone(service_zone);
-    return successResponse(res, 200, "Partners retrieved successfully", partners);
+    return res.status(200).json({
+      success: true,
+      message: "Partners retrieved successfully",
+      data: partners,
+    });
   } catch (err) {
-    next(err);
+    return res.status(err.statusCode || 500).json({
+      success: false,
+      message: err.message || "Failed to browse partners",
+      error: err.errorType || "INTERNAL_SERVER_ERROR",
+    });
   }
 }
-
-export {
-  setPartnerPrice,
-  publishSchedule,
-  browsePartners,
-};

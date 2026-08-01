@@ -1,111 +1,139 @@
 import prisma from "../../config/db.js";
-import ApiError from "../../utils/ApiError.js";
-import { notifyPartnerOfDemand } from "../../utils/fcmNotifier.js";
 
-async function markReady(householdId, { partner_id, service_area, materials }) {
+/**
+ * Household marks materials ready
+ */
+async function markReady(userId, { partner_id, service_area, materials }) {
   if (!partner_id || !service_area) {
-    throw new ApiError(
-      400,
-      "partner_id and service_area are required",
-      "BAD_REQUEST",
-    );
+    const err = new Error("partner_id and service_area are required");
+    err.statusCode = 400;
+    err.errorType = "BAD_REQUEST";
+    throw err;
   }
+
   if (!Array.isArray(materials) || materials.length === 0) {
-    throw new ApiError(
-      400,
-      "materials must be a non-empty array",
-      "BAD_REQUEST",
-    );
+    const err = new Error("materials must be a non-empty array");
+    err.statusCode = 400;
+    err.errorType = "BAD_REQUEST";
+    throw err;
+  }
+
+  // Look up household profile
+  const householdProfile = await prisma.householdProfile.findUnique({
+    where: { user_id: userId },
+  });
+
+  if (!householdProfile) {
+    const err = new Error("Household profile not found");
+    err.statusCode = 404;
+    err.errorType = "NOT_FOUND";
+    throw err;
   }
 
   const partner = await prisma.collectionPartnerProfile.findUnique({
     where: { id: partner_id },
   });
+
   if (!partner) {
-    throw new ApiError(404, "Collection partner not found", "NOT_FOUND");
+    const err = new Error("Collection partner not found");
+    err.statusCode = 404;
+    err.errorType = "NOT_FOUND";
+    throw err;
   }
 
+  // Check existing active declaration for this partner
   const existing = await prisma.scheduledDeclaration.findFirst({
     where: {
-      householdId,
-      partnerId: partner_id,
-      status: "READY",
+      household_id: householdProfile.id,
+      partner_id: partner_id,
     },
   });
+
   if (existing) {
-    throw new ApiError(
-      400,
-      "You already have an active declaration with this partner",
-      "DUPLICATE_DECLARATION",
-    );
+    const err = new Error("You already have an active declaration for this collection day.");
+    err.statusCode = 400;
+    err.errorType = "DUPLICATE_DECLARATION";
+    throw err;
   }
 
+  // Create active declaration
   const declaration = await prisma.scheduledDeclaration.create({
     data: {
-      householdId,
-      partnerId: partner_id,
-      serviceZone: service_area,
+      household_id: householdProfile.id,
+      partner_id: partner_id,
+      service_area: service_area,
       materials,
-      status: "READY",
     },
   });
-
-  notifyPartnerOfDemand(partner_id).catch(() => {});
 
   return {
     declaration_id: declaration.id,
-    status: declaration.status,
+    status: "READY",
   };
 }
 
-async function cancelDeclaration(householdId, declarationId) {
+/**
+ * Cancel active declaration
+ */
+async function cancelDeclaration(userId, declarationId) {
+  const householdProfile = await prisma.householdProfile.findUnique({
+    where: { user_id: userId },
+  });
+
   const declaration = await prisma.scheduledDeclaration.findUnique({
     where: { id: declarationId },
   });
 
-  if (!declaration || declaration.householdId !== householdId) {
-    throw new ApiError(404, "Declaration not found", "NOT_FOUND");
-  }
-  if (declaration.status !== "READY") {
-    throw new ApiError(
-      400,
-      "Only READY declarations can be cancelled",
-      "BAD_REQUEST",
-    );
+  if (!declaration || declaration.household_id !== householdProfile?.id) {
+    const err = new Error("Declaration not found");
+    err.statusCode = 404;
+    err.errorType = "NOT_FOUND";
+    throw err;
   }
 
-  return prisma.scheduledDeclaration.update({
+  // Remove the declaration row when cancelled
+  return prisma.scheduledDeclaration.delete({
     where: { id: declarationId },
-    data: { status: "CANCELLED" },
   });
 }
 
-async function getPartnerDemand(partnerId, serviceZone) {
-  const where = {
-    partnerId,
-    status: "READY",
-    ...(serviceZone ? { serviceZone } : {}),
-  };
-
-  const declarations = await prisma.scheduledDeclaration.findMany({
-    where,
-    include: { household: true },
-    orderBy: { createdAt: "asc" },
+/**
+ * Partner views accumulated area demand (US-C6)
+ */
+async function getPartnerDemand(userId, serviceZone) {
+  const partnerProfile = await prisma.collectionPartnerProfile.findUnique({
+    where: { user_id: userId },
   });
 
-  const zone = serviceZone || (declarations[0]?.serviceZone ?? null);
+  if (!partnerProfile) {
+    const err = new Error("Collection Partner profile not found");
+    err.statusCode = 404;
+    err.errorType = "NOT_FOUND";
+    throw err;
+  }
+
+  const zone = serviceZone || partnerProfile.service_area;
+
+  const declarations = await prisma.scheduledDeclaration.findMany({
+    where: {
+      partner_id: partnerProfile.id,
+      ...(zone && { service_area: zone }),
+    },
+    include: { household: true },
+    orderBy: { created_at: "asc" },
+  });
 
   return {
     service_area: zone,
     ready_households_count: declarations.length,
     households: declarations.map((d) => ({
       declaration_id: d.id,
-      reference_code: d.household.referenceCode,
-      first_name: d.household.firstName,
+      reference_code: d.household.reference_code,
+      first_name: d.household.first_name,
       landmark: d.household.landmark || null,
       materials: d.materials,
     })),
   };
 }
 
-export { markReady, cancelDeclaration, getPartnerDemand };
+export default { markReady, cancelDeclaration, getPartnerDemand };

@@ -1,29 +1,13 @@
 import express from "express";
-import * as schedulesController from "./schedules.controller.js";
-import { authenticate } from "../../middlewares/auth.js";
-import { authorize } from "../../middlewares/rbac.js";
+import { setPartnerPrice, publishSchedule, browsePartners } from "./schedules.controller.js";
+import { protect, restrictTo } from "../../middlewares/auth.middleware.js";
 
 const router = express.Router();
 
-router.post(
-  "/partners/prices",
-  authenticate,
-  authorize("COLLECTION_PARTNER"),
-  schedulesController.setPartnerPrice,
-);
+router.use(protect);
 
-router.post(
-  "/partners/schedules",
-  authenticate,
-  authorize("COLLECTION_PARTNER"),
-  schedulesController.publishSchedule,
-);
-
-router.get(
-  "/households/partners",
-  authenticate,
-  authorize("HOUSEHOLD"),
-  schedulesController.browsePartners,
-);
+router.post("/prices", restrictTo("COLLECTION_PARTNER"), setPartnerPrice);
+router.post("/schedules", restrictTo("COLLECTION_PARTNER"), publishSchedule);
+router.get("/partners", restrictTo("HOUSEHOLD"), browsePartners);
 
 export default router;

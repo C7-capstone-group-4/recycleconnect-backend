@@ -1,67 +1,99 @@
 import prisma from "../../config/db.js";
-import ApiError from "../../utils/ApiError.js";
 
-async function setPartnerPrice(partnerId, { category_id, price_per_kg }) {
+async function setPartnerPrice(userId, { category_id, price_per_kg }) {
   if (!category_id || price_per_kg === undefined) {
-    throw new ApiError(
-      400,
-      "category_id and price_per_kg are required",
-      "BAD_REQUEST",
-    );
+    const err = new Error("category_id and price_per_kg are required");
+    err.statusCode = 400;
+    err.errorType = "BAD_REQUEST";
+    throw err;
   }
+
   if (Number(price_per_kg) <= 0) {
-    throw new ApiError(
-      400,
-      "price_per_kg must be greater than 0",
-      "BAD_REQUEST",
-    );
+    const err = new Error("price_per_kg must be greater than 0");
+    err.statusCode = 400;
+    err.errorType = "BAD_REQUEST";
+    throw err;
+  }
+
+  const partnerProfile = await prisma.collectionPartnerProfile.findUnique({
+    where: { user_id: userId },
+  });
+
+  if (!partnerProfile) {
+    const err = new Error("Collection Partner profile not found");
+    err.statusCode = 404;
+    err.errorType = "NOT_FOUND";
+    throw err;
   }
 
   const category = await prisma.materialCategory.findUnique({
     where: { id: category_id },
   });
+
   if (!category) {
-    throw new ApiError(404, "Material category not found", "NOT_FOUND");
+    const err = new Error("Material category not found");
+    err.statusCode = 404;
+    err.errorType = "NOT_FOUND";
+    throw err;
   }
 
-  const price = await prisma.partnerMaterialPrice.upsert({
+  const existingPrice = await prisma.partnerMaterialPrice.findFirst({
     where: {
-      partnerId_categoryId: { partnerId, categoryId: category_id },
-    },
-    update: { pricePerKg: price_per_kg },
-    create: {
-      partnerId,
-      categoryId: category_id,
-      pricePerKg: price_per_kg,
+      partner_id: partnerProfile.id,
+      category_id: category_id,
     },
   });
 
+  let price;
+  if (existingPrice) {
+    price = await prisma.partnerMaterialPrice.update({
+      where: { id: existingPrice.id },
+      data: { price_per_kg: parseFloat(price_per_kg) },
+    });
+  } else {
+    price = await prisma.partnerMaterialPrice.create({
+      data: {
+        partner_id: partnerProfile.id,
+        category_id: category_id,
+        price_per_kg: parseFloat(price_per_kg),
+      },
+    });
+  }
+
   return {
-    partner_id: price.partnerId,
-    category_id: price.categoryId,
-    price_per_kg: price.pricePerKg,
+    partner_id: price.partner_id,
+    category_id: price.category_id,
+    price_per_kg: price.price_per_kg,
   };
 }
 
-async function publishSchedule(
-  partnerId,
-  { service_zone, collection_day, time_window, notes },
-) {
-  if (!service_zone || !collection_day) {
-    throw new ApiError(
-      400,
-      "service_zone and collection_day are required",
-      "BAD_REQUEST",
-    );
+async function publishSchedule(userId, { service_zone, service_area, collection_day, time_window }) {
+  const targetArea = service_area || service_zone;
+
+  if (!targetArea || !collection_day) {
+    const err = new Error("service_area (or service_zone) and collection_day are required");
+    err.statusCode = 400;
+    err.errorType = "BAD_REQUEST";
+    throw err;
+  }
+
+  const partnerProfile = await prisma.collectionPartnerProfile.findUnique({
+    where: { user_id: userId },
+  });
+
+  if (!partnerProfile) {
+    const err = new Error("Collection Partner profile not found");
+    err.statusCode = 404;
+    err.errorType = "NOT_FOUND";
+    throw err;
   }
 
   const schedule = await prisma.partnerSchedule.create({
     data: {
-      partnerId,
-      serviceZone: service_zone,
-      collectionDay: collection_day,
-      timeWindow: time_window || null,
-      notes: notes || null,
+      partner_id: partnerProfile.id,
+      service_area: targetArea,
+      collection_day: collection_day,
+      time_window: time_window || null,
     },
   });
 
@@ -69,9 +101,8 @@ async function publishSchedule(
 }
 
 async function browsePartnersByZone(serviceZone) {
-  const where = { isVerified: true };
   const partners = await prisma.collectionPartnerProfile.findMany({
-    where,
+    where: { user: { status: "APPROVED" } },
     include: {
       prices: { include: { category: true } },
       schedules: true,
@@ -79,27 +110,27 @@ async function browsePartnersByZone(serviceZone) {
   });
 
   const filtered = serviceZone
-    ? partners.filter((p) => (p.serviceZones || []).includes(serviceZone))
+    ? partners.filter((p) => p.service_area === serviceZone || (p.service_zones || []).includes(serviceZone))
     : partners;
 
   return filtered.map((p) => ({
     id: p.id,
-    business_name: p.companyName,
-    badge_title: p.badgeTitle,
+    business_name: p.business_name,
+    badge_title: p.badge_title,
     address: p.address,
     landmark: p.landmark || null,
-    dropoff_hours: p.dropoffHours,
+    dropoff_hours: p.dropoff_hours,
     schedules: p.schedules
-      .filter((s) => !serviceZone || s.serviceZone === serviceZone)
+      .filter((s) => !serviceZone || s.service_area === serviceZone)
       .map((s) => ({
-        collection_day: s.collectionDay,
-        time_window: s.timeWindow,
+        collection_day: s.collection_day,
+        time_window: s.time_window,
       })),
     prices: p.prices.map((pr) => ({
       category_name: pr.category.name,
-      price_per_kg: pr.pricePerKg,
+      price_per_kg: pr.price_per_kg,
     })),
   }));
 }
 
-export { setPartnerPrice, publishSchedule, browsePartnersByZone };
+export default { setPartnerPrice, publishSchedule, browsePartnersByZone };

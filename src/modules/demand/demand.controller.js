@@ -1,56 +1,56 @@
-import demandService from "./demand.service";
-import successResponse from "../../utils/responseHelpers";
+import demandService from "./demand.service.js";
 
-/**
- * POST /api/v1/households/declarations
- * Role: HOUSEHOLD
- */
-async function markReady(req, res, next) {
+export async function markReady(req, res) {
   try {
-    const householdId = req.user.householdProfileId; // attached by auth middleware
-    const result = await demandService.markReady(householdId, req.body);
-    return successResponse(
-      res,
-      201,
-      "Materials marked ready for upcoming scheduled collection",
-      result,
-    );
+    const userId = req.user.id;
+    const result = await demandService.markReady(userId, req.body);
+    return res.status(201).json({
+      success: true,
+      message: "Materials marked ready for upcoming scheduled collection",
+      data: result,
+    });
   } catch (err) {
-    next(err);
+    return res.status(err.statusCode || 500).json({
+      success: false,
+      message: err.message || "Failed to mark materials as ready",
+      error: err.errorType || "INTERNAL_SERVER_ERROR",
+    });
   }
 }
 
-/**
- * PATCH /api/v1/households/declarations/:id/cancel
- * Role: HOUSEHOLD
- */
-async function cancelDeclaration(req, res, next) {
+export async function cancelDeclaration(req, res) {
   try {
-    const householdId = req.user.householdProfileId;
+    const userId = req.user.id;
     const { id } = req.params;
-    await demandService.cancelDeclaration(householdId, id);
-    return successResponse(res, 200, "Declaration cancelled successfully");
+    await demandService.cancelDeclaration(userId, id);
+    return res.status(200).json({
+      success: true,
+      message: "Declaration cancelled successfully",
+    });
   } catch (err) {
-    next(err);
+    return res.status(err.statusCode || 500).json({
+      success: false,
+      message: err.message || "Failed to cancel declaration",
+      error: err.errorType || "INTERNAL_SERVER_ERROR",
+    });
   }
 }
 
-/**
- * GET /api/v1/partners/demand?service_zone=Ikeja Zone A
- * Role: COLLECTION_PARTNER
- */
-async function getPartnerDemand(req, res, next) {
+export async function getPartnerDemand(req, res) {
   try {
-    const partnerId = req.user.partnerProfileId;
+    const userId = req.user.id;
     const { service_zone } = req.query;
-    const result = await demandService.getPartnerDemand(
-      partnerId,
-      service_zone,
-    );
-    return successResponse(res, 200, "Demand retrieved successfully", result);
+    const result = await demandService.getPartnerDemand(userId, service_zone);
+    return res.status(200).json({
+      success: true,
+      message: "Demand retrieved successfully",
+      data: result,
+    });
   } catch (err) {
-    next(err);
+    return res.status(err.statusCode || 500).json({
+      success: false,
+      message: err.message || "Failed to retrieve demand",
+      error: err.errorType || "INTERNAL_SERVER_ERROR",
+    });
   }
 }
-
-export { markReady, cancelDeclaration, getPartnerDemand };

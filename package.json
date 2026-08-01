@@ -3,10 +3,14 @@
   "version": "1.0.0",
   "description": "Backend logic for  RecycleConnect",
   "main": "app.js",
+  "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js",
     "dev": "nodemon server.js",
-    "start": "node server.js"
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:seed": "node prisma/seed.js",
+    "prisma:clear": "node prisma/clear.js",
+    "prisma:reset": "node prisma/clear.js && node prisma/seed.js"
   },
   "repository": {
     "type": "git",
@@ -15,18 +19,25 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "commonjs",
   "bugs": {
-    "url": "https://github.com/C7-capstone-groupc4/recycleconnect-backend/issues"
+    "url": "https://github.com/C7-capstone-group-4/recycleconnect-backend/issues"
   },
   "homepage": "https://github.com/C7-capstone-group-4/recycleconnect-backend#readme",
   "dependencies": {
-    "@prisma/client": "^6.16.2",
+    "@prisma/adapter-pg": "^7.9.0",
+    "@prisma/client": "^7.9.0",
+    "bcryptjs": "^3.0.3",
+    "cloudinary": "^2.10.0",
+    "cors": "^2.8.6",
     "dotenv": "^17.4.2",
-    "express": "^5.2.1"
+    "express": "^5.2.1",
+    "helmet": "^8.3.0",
+    "jsonwebtoken": "^9.0.3",
+    "multer": "^2.2.0",
+    "pg": "^8.22.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.14",
-    "prisma": "^6.19.3"
+    "prisma": "^7.9.0"
   }
 }

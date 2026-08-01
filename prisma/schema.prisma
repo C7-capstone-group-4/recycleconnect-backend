@@ -4,35 +4,272 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
+// ENUMS
+enum UserRole {
+  HOUSEHOLD
+  COLLECTION_PARTNER
+  RECYCLING_ORG
+  ADMIN
+}
+
+enum AccountStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum PartnerType {
+  EXISTING_OPERATOR
+  NEW_ENTRANT
+}
+
+enum SellerType {
+  REGISTERED_HOUSEHOLD
+  GENERAL_UNREGISTERED
+}
+
+enum TransactionStatus {
+  PENDING_CONFIRMATION
+  CONFIRMED
+  DISPUTED
+  RESOLVED
+}
+
+enum InterestStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  COMPLETED
+}
+
+// MODELS
+// Core User
 model User {
-  id     String  @id @default(cuid())
-  email  String  @unique
-  wallet Wallet?
+  id            String        @id @default(uuid())
+  phone         String?       @unique // Required for Household & Partner
+  email         String?       @unique // Required for Recycler & Admin
+  pin_hash      String? // 4-digit hashed PIN for Household & Partner
+  password_hash String? // Hashed password for Recycler & Admin
+  role          UserRole
+  device_token  String? // FCM Push Notification token
+  status        AccountStatus @default(APPROVED) // Partners and Recyclers start PENDING
+  created_at    DateTime      @default(now())
+  updated_at    DateTime      @updatedAt
+
+  householdProfile    HouseholdProfile?
+  partnerProfile      CollectionPartnerProfile?
+  recyclingOrgProfile RecyclingOrgProfile?
+  wallet              Wallet?
 }
 
+// Household Profile
+model HouseholdProfile {
+  id              String   @id @default(uuid())
+  user_id         String   @unique
+  first_name      String
+  reference_code  String   @unique // e.g. "HC-8392"
+  state           String
+  area            String
+  landmark        String
+  service_zone    String // Assigned service area e.g., "Ikeja Zone A" (used to group scheduled demand)
+  bank_name       String? // Linked via Paystack
+  bank_account_no String? // Linked via Paystack
+  loyalty_points  Int      @default(0)
+  tier_status     String   @default("BRONZE") // BRONZE, SILVER, GOLD
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  declarations ScheduledDeclaration[]
+  transactions CollectionTransaction[]
+  disputes     Dispute[]
+}
+
+// Collection Partner Profile (Aggregator / Local Operator)
+model CollectionPartnerProfile {
+  id               String      @id @default(uuid())
+  user_id          String      @unique
+  full_name        String
+  business_name    String
+  partner_type     PartnerType @default(EXISTING_OPERATOR)
+  id_type          String // e.g. "NIN", "VOTERS_CARD", "DRIVERS_LICENSE"
+  id_number        String
+  id_photo_url     String // Cloudinary URL
+  vehicle_type     String
+  storage_capacity String
+  address          String // Drop-off location
+  landmark         String
+  latitude         Float
+  longitude        Float
+  dropoff_hours    String? // e.g., "Mon-Sat 8AM - 5PM"
+  service_area     String // Assigned service area (exactly one partner per area)
+  badge_title      String?     @default("Verified Partner")
+  created_at       DateTime    @default(now())
+  updated_at       DateTime    @updatedAt
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  prices       PartnerMaterialPrice[]
+  schedules    PartnerSchedule[]
+  declarations ScheduledDeclaration[]
+  transactions CollectionTransaction[]
+  interests    RecyclerInterest[]
+}
+
+// Recycling Organisation Profile
+model RecyclingOrgProfile {
+  id                    String   @id @default(uuid())
+  user_id               String   @unique
+  org_name              String
+  contact_name          String
+  address               String
+  materials_of_interest String[] // Array of category names
+  created_at            DateTime @default(now())
+  updated_at            DateTime @updatedAt
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  interests RecyclerInterest[]
+}
+
+// Digital Wallet & Transactions (Paystack Integration)
 model Wallet {
-  id        String   @id @default(cuid())
-  userId    String   @unique
-  balance   Float    @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         String   @id @default(uuid())
+  user_id    String   @unique
+  balance    Float    @default(0.0) // In-app balance of Households and Partners
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
+  user         User                @relation(fields: [user_id], references: [id], onDelete: Cascade)
   transactions WalletTransaction[]
 }
 
 model WalletTransaction {
-  id        String   @id @default(cuid())
-  walletId  String
-  amount    Float
-  type      String
-  status    String   @default("SUCCESS")
-  reference String   @unique
-  createdAt DateTime @default(now())
+  id             String   @id @default(uuid())
+  wallet_id      String
+  amount         Float
+  type           String // "CREDIT" or "DEBIT"
+  reference_type String // "PRE_FUND", "HOUSEHOLD_PAYOUT", "BANK_WITHDRAWAL", "UTILITY_BILL", "RECYCLER_PURCHASE"
+  paystack_ref   String?  @unique
+  created_at     DateTime @default(now())
 
-  wallet Wallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  wallet Wallet @relation(fields: [wallet_id], references: [id], onDelete: Cascade)
+}
+
+// Material Categories (PET Plastics, Aluminum Cans, Glass, etc.)
+model MaterialCategory {
+  id         String   @id @default(uuid())
+  name       String   @unique
+  unit       String   @default("kg")
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  prices PartnerMaterialPrice[]
+  items  TransactionItem[]
+}
+
+// Partner-Published Buying Prices
+model PartnerMaterialPrice {
+  id           String   @id @default(uuid())
+  partner_id   String
+  category_id  String
+  price_per_kg Float // Buying price per kg published by partner
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  partner  CollectionPartnerProfile @relation(fields: [partner_id], references: [id], onDelete: Cascade)
+  category MaterialCategory         @relation(fields: [category_id], references: [id], onDelete: Cascade)
+}
+
+// Partner Published Schedules
+model PartnerSchedule {
+  id             String   @id @default(uuid())
+  partner_id     String
+  service_area   String // e.g., "Ikeja Zone A"
+  collection_day String // e.g., "EVERY_TUESDAY"
+  time_window    String? // e.g., "8:00 AM - 12:00 PM"
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+
+  partner CollectionPartnerProfile @relation(fields: [partner_id], references: [id], onDelete: Cascade)
+}
+
+// Household Ready Declaration (Scheduled Collection Demand)
+model ScheduledDeclaration {
+  id           String   @id @default(uuid())
+  household_id String
+  partner_id   String
+  service_area String
+  materials    String[] // Array of material category names ready
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  household HouseholdProfile         @relation(fields: [household_id], references: [id], onDelete: Cascade)
+  partner   CollectionPartnerProfile @relation(fields: [partner_id], references: [id], onDelete: Cascade)
+}
+
+// Transaction Record (Cash Paid on the Spot)
+model CollectionTransaction {
+  id               String            @id @default(uuid())
+  partner_id       String
+  seller_type      SellerType // REGISTERED_HOUSEHOLD or GENERAL_UNREGISTERED
+  household_id     String? // Null if general unregistered seller
+  transaction_type String // SCHEDULED_COLLECTION or DROP_OFF
+  total_amount     Float
+  status           TransactionStatus @default(PENDING_CONFIRMATION)
+  logged_at        DateTime          @default(now())
+  updated_at       DateTime          @updatedAt
+
+  partner   CollectionPartnerProfile @relation(fields: [partner_id], references: [id], onDelete: Cascade)
+  household HouseholdProfile?        @relation(fields: [household_id], references: [id], onDelete: Cascade)
+
+  items    TransactionItem[]
+  disputes Dispute[]
+}
+
+// Transaction Line Items
+model TransactionItem {
+  id             String @id @default(uuid())
+  transaction_id String
+  category_id    String
+  weight_kg      Float
+  price_per_kg   Float
+  subtotal_cash  Float
+
+  transaction CollectionTransaction @relation(fields: [transaction_id], references: [id], onDelete: Cascade)
+  category    MaterialCategory      @relation(fields: [category_id], references: [id], onDelete: Cascade)
+}
+
+// Disputes
+model Dispute {
+  id             String   @id @default(uuid())
+  transaction_id String
+  household_id   String
+  reason         String // Household's disagreement notes
+  admin_notes    String? // Resolution notes from Admin
+  is_resolved    Boolean  @default(false)
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+
+  transaction CollectionTransaction @relation(fields: [transaction_id], references: [id], onDelete: Cascade)
+  household   HouseholdProfile      @relation(fields: [household_id], references: [id], onDelete: Cascade)
+}
+
+// Recycler Expressed Interest & In-App Purchases
+model RecyclerInterest {
+  id            String         @id @default(uuid())
+  recycler_id   String
+  partner_id    String
+  category_name String
+  estimated_kg  Float
+  status        InterestStatus @default(PENDING) // PENDING, ACCEPTED, DECLINED, COMPLETED
+  paystack_ref  String?        @unique
+  created_at    DateTime       @default(now())
+  updated_at    DateTime       @updatedAt
+
+  recycler RecyclingOrgProfile      @relation(fields: [recycler_id], references: [id], onDelete: Cascade)
+  partner  CollectionPartnerProfile @relation(fields: [partner_id], references: [id], onDelete: Cascade)
 }

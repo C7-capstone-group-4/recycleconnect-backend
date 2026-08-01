@@ -1,48 +1,104 @@
-import asyncHandler from '../../utils/asyncHandler.js';
-import { sendSuccess } from '../../utils/response.js;
 import transactionsService from './transactions.service.js';
 
-// GET /api/v1/households/lookup/:refCode
-const lookupHouseholdByReferenceCode = asyncHandler(async (req, res) => {
-  const household = await transactionsService.lookupHouseholdByReferenceCode(req.params.refCode);
-  return sendSuccess(res, 200, 'Household found', household);
-});
 
-// POST /api/v1/partners/transactions
-const logTransactions = asyncHandler(async (req, res) => {
-  const created = await transactionsService.logTransactions(req.user.id, req.body);
-  return sendSuccess(res, 201, `${created.length} transaction(s) logged successfully`, created);
-});
+export async function lookupHouseholdByReferenceCode(req, res) {
+  try {
+    const household = await transactionsService.lookupHouseholdByReferenceCode(req.params.refCode);
+    return res.status(200).json({
+      success: true,
+      message: 'Household details found successfully',
+      data: household,
+    });
+  } catch (err) {
+    return res.status(err.statusCode || 500).json({
+      success: false,
+      message: err.message || 'Failed to lookup household',
+      error: err.errorType || 'INTERNAL_SERVER_ERROR',
+    });
+  }
+}
 
-// PATCH /api/v1/households/transactions/:id/confirm
-const confirmTransaction = asyncHandler(async (req, res) => {
-  const result = await transactionsService.confirmTransaction(req.user.id, req.params.id);
-  return sendSuccess(res, 200, 'Transaction confirmed by household', result);
-});
+export async function logTransactions(req, res) {
+  try {
+    const created = await transactionsService.logTransactions(req.user.id, req.body);
+    return res.status(201).json({
+      success: true,
+      message: `${created.length} transaction(s) logged successfully`,
+      data: created,
+    });
+  } catch (err) {
+    return res.status(err.statusCode || 500).json({
+      success: false,
+      message: err.message || 'Failed to log transaction(s)',
+      error: err.errorType || 'INTERNAL_SERVER_ERROR',
+    });
+  }
+}
 
-// POST /api/v1/households/transactions/:id/dispute
-const disputeTransaction = asyncHandler(async (req, res) => {
-  const result = await transactionsService.disputeTransaction(req.user.id, req.params.id, req.body);
-  return sendSuccess(res, 201, 'Transaction flagged as disputed', result);
-});
+export async function confirmTransaction(req, res) {
+  try {
+    const result = await transactionsService.confirmTransaction(req.user.id, req.params.id);
+    return res.status(200).json({
+      success: true,
+      message: 'Transaction confirmed by household successfully',
+      data: result,
+    });
+  } catch (err) {
+    return res.status(err.statusCode || 500).json({
+      success: false,
+      message: err.message || 'Failed to confirm transaction',
+      error: err.errorType || 'INTERNAL_SERVER_ERROR',
+    });
+  }
+}
 
-// GET /api/v1/households/history
-const getHouseholdHistory = asyncHandler(async (req, res) => {
-  const history = await transactionsService.getHouseholdHistory(req.user.id);
-  return sendSuccess(res, 200, 'Transaction history fetched successfully', history);
-});
+export async function disputeTransaction(req, res) {
+  try {
+    const result = await transactionsService.disputeTransaction(req.user.id, req.params.id, req.body);
+    return res.status(201).json({
+      success: true,
+      message: 'Transaction flagged as disputed successfully',
+      data: result,
+    });
+  } catch (err) {
+    return res.status(err.statusCode || 500).json({
+      success: false,
+      message: err.message || 'Failed to flag dispute',
+      error: err.errorType || 'INTERNAL_SERVER_ERROR',
+    });
+  }
+}
 
-// GET /api/v1/partners/history
-const getPartnerHistory = asyncHandler(async (req, res) => {
-  const history = await transactionsService.getPartnerHistory(req.user.id);
-  return sendSuccess(res, 200, 'Transaction history fetched successfully', history);
-});
+export async function getHouseholdHistory(req, res) {
+  try {
+    const history = await transactionsService.getHouseholdHistory(req.user.id);
+    return res.status(200).json({
+      success: true,
+      message: 'Household transaction history fetched successfully',
+      data: history,
+    });
+  } catch (err) {
+    return res.status(err.statusCode || 500).json({
+      success: false,
+      message: err.message || 'Failed to fetch history',
+      error: err.errorType || 'INTERNAL_SERVER_ERROR',
+    });
+  }
+}
 
-export default {
-  lookupHouseholdByReferenceCode,
-  logTransactions,
-  confirmTransaction,
-  disputeTransaction,
-  getHouseholdHistory,
-  getPartnerHistory,
-};
+export async function getPartnerHistory(req, res) {
+  try {
+    const history = await transactionsService.getPartnerHistory(req.user.id);
+    return res.status(200).json({
+      success: true,
+      message: 'Partner transaction history fetched successfully',
+      data: history,
+    });
+  } catch (err) {
+    return res.status(err.statusCode || 500).json({
+      success: false,
+      message: err.message || 'Failed to fetch partner history',
+      error: err.errorType || 'INTERNAL_SERVER_ERROR',
+    });
+  }
+}

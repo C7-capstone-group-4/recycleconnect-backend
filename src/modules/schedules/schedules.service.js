@@ -1,189 +1,187 @@
 import prisma from '../../config/db.js';
-import AppError from '../../utils/AppError.js';
 
-/**
- * Fetch the CollectionPartnerProfile for a given user id, or throw.
- * Most partner-scoped actions need the profile id (not the user id).
- */
 async function getPartnerProfileOrThrow(userId) {
   const partner = await prisma.collectionPartnerProfile.findUnique({
-    where: { userId },
+    where: { user_id: userId },
   });
   if (!partner) {
-    throw new AppError('Collection Partner profile not found for this user.', 404, 'NOT_FOUND');
+    const err = new Error('Collection Partner profile not found for this user.');
+    err.statusCode = 404;
+    err.errorType = 'NOT_FOUND';
+    throw err;
   }
   return partner;
 }
 
-/**
- * POST /partners/prices
- * Create or update (upsert) a partner's buying price for a material category.
- */
+// POST /partners/prices
 async function publishPrice(userId, { category_id, price_per_kg }) {
   if (!category_id || price_per_kg == null) {
-    throw new AppError('category_id and price_per_kg are required.', 400, 'BAD_REQUEST');
+    const err = new Error('category_id and price_per_kg are required.');
+    err.statusCode = 400;
+    err.errorType = 'BAD_REQUEST';
+    throw err;
   }
   if (Number(price_per_kg) <= 0) {
-    throw new AppError('price_per_kg must be a positive number.', 400, 'BAD_REQUEST');
+    const err = new Error('price_per_kg must be a positive number.');
+    err.statusCode = 400;
+    err.errorType = 'BAD_REQUEST';
+    throw err;
   }
 
   const partner = await getPartnerProfileOrThrow(userId);
 
   const category = await prisma.materialCategory.findUnique({ where: { id: category_id } });
   if (!category) {
-    throw new AppError('Material category not found.', 404, 'NOT_FOUND');
+    const err = new Error('Material category not found.');
+    err.statusCode = 404;
+    err.errorType = 'NOT_FOUND';
+    throw err;
   }
 
-  const price = await prisma.partnerMaterialPrice.upsert({
-    where: {
-      partnerId_categoryId: { partnerId: partner.id, categoryId: category_id },
-    },
-    update: { pricePerKg: price_per_kg },
-    create: {
-      partnerId: partner.id,
-      categoryId: category_id,
-      pricePerKg: price_per_kg,
-    },
+  const existingPrice = await prisma.partnerMaterialPrice.findFirst({
+    where: { partner_id: partner.id, category_id: category_id },
   });
+
+  let price;
+  if (existingPrice) {
+    price = await prisma.partnerMaterialPrice.update({
+      where: { id: existingPrice.id },
+      data: { price_per_kg: parseFloat(price_per_kg) },
+    });
+  } else {
+    price = await prisma.partnerMaterialPrice.create({
+      data: {
+        partner_id: partner.id,
+        category_id: category_id,
+        price_per_kg: parseFloat(price_per_kg),
+      },
+    });
+  }
 
   return {
     id: price.id,
-    partner_id: price.partnerId,
-    category_id: price.categoryId,
-    price_per_kg: Number(price.pricePerKg),
+    partner_id: price.partner_id,
+    category_id: price.category_id,
+    price_per_kg: Number(price.price_per_kg),
   };
 }
 
-/**
- * GET /households/prices
- * Households view published buying prices, optionally filtered by service_zone.
- */
+// GET /households/prices
 async function listPricesForHouseholds({ service_zone }) {
   const partners = await prisma.collectionPartnerProfile.findMany({
-    where: service_zone
-      ? { serviceZones: { array_contains: service_zone } }
-      : undefined,
-    select: {
-      id: true,
-      companyName: true,
-      isVerified: true,
-      prices: {
-        select: {
-          pricePerKg: true,
-          category: { select: { id: true, name: true, unit: true } },
-        },
-      },
+    where: { user: { status: 'APPROVED' } },
+    include: {
+      prices: { include: { category: true } },
     },
   });
 
-  return partners.map((p) => ({
+  const filtered = service_zone
+    ? partners.filter((p) => p.service_area === service_zone || (p.service_zones || []).includes(service_zone))
+    : partners;
+
+  return filtered.map((p) => ({
     partner_id: p.id,
-    company_name: p.companyName,
-    is_verified: p.isVerified,
+    business_name: p.business_name,
+    is_verified: p.is_verified,
     prices: p.prices.map((pr) => ({
       category_id: pr.category.id,
       category_name: pr.category.name,
       unit: pr.category.unit,
-      price_per_kg: Number(pr.pricePerKg),
+      price_per_kg: Number(pr.price_per_kg),
     })),
   }));
 }
 
-/**
- * POST /partners/schedules
- * Partner creates/publishes a recurring collection day for a service zone.
- */
-async function publishSchedule(userId, { service_zone, collection_day, notes }) {
+// POST /partners/schedules
+async function publishSchedule(userId, { service_zone, collection_day, time_window }) {
   if (!service_zone || !collection_day) {
-    throw new AppError('service_zone and collection_day are required.', 400, 'BAD_REQUEST');
+    const err = new Error('service_zone and collection_day are required.');
+    err.statusCode = 400;
+    err.errorType = 'BAD_REQUEST';
+    throw err;
   }
 
   const partner = await getPartnerProfileOrThrow(userId);
 
   const schedule = await prisma.partnerSchedule.create({
     data: {
-      partnerId: partner.id,
-      serviceZone: service_zone,
-      collectionDay: collection_day,
-      notes: notes || null,
+      partner_id: partner.id,
+      service_area: service_zone,
+      collection_day: collection_day,
+      time_window: time_window || null,
     },
   });
 
   return {
     id: schedule.id,
-    service_zone: schedule.serviceZone,
-    collection_day: schedule.collectionDay,
-    notes: schedule.notes,
+    service_area: schedule.service_area,
+    collection_day: schedule.collection_day,
+    time_window: schedule.time_window,
   };
 }
 
-/**
- * GET /households/partners
- * Households browse nearby/local partners with their schedules and prices.
- * Supports filtering by service_zone (lat/lng-based proximity can be layered
- * on later — MVP uses zone matching per the "Predictable Scheduling" design goal).
- */
+// GET /households/partners
 async function listPartnersForHouseholds({ service_zone }) {
   const partners = await prisma.collectionPartnerProfile.findMany({
-    where: service_zone
-      ? { serviceZones: { array_contains: service_zone } }
-      : undefined,
+    where: { user: { status: 'APPROVED' } },
     include: {
-      schedules: service_zone ? { where: { serviceZone: service_zone } } : true,
+      schedules: true,
       prices: { include: { category: true } },
     },
   });
 
-  return partners.map((p) => ({
+  const filtered = service_zone
+    ? partners.filter((p) => p.service_area === service_zone || (p.service_zones || []).includes(service_zone))
+    : partners;
+
+  return filtered.map((p) => ({
     id: p.id,
-    company_name: p.companyName,
-    is_verified: p.isVerified,
-    badge_title: p.badgeTitle,
+    business_name: p.business_name,
+    badge_title: p.badge_title,
     address: p.address,
-    dropoff_hours: p.dropoffHours,
-    schedules: p.schedules.map((s) => ({
-      service_zone: s.serviceZone,
-      collection_day: s.collectionDay,
-      notes: s.notes,
-    })),
+    dropoff_hours: p.dropoff_hours,
+    schedules: p.schedules
+      .filter((s) => !service_zone || s.service_area === service_zone)
+      .map((s) => ({
+        service_area: s.service_area,
+        collection_day: s.collection_day,
+        time_window: s.time_window,
+      })),
     prices: p.prices.map((pr) => ({
       category_name: pr.category.name,
-      price_per_kg: Number(pr.pricePerKg),
+      price_per_kg: Number(pr.price_per_kg),
     })),
   }));
 }
 
-/**
- * GET /partners/demand
- * Partner views accumulated READY households, grouped/filterable by service_zone.
- */
+// GET /partners/demand
 async function getAreaDemand(userId, { service_zone }) {
   const partner = await getPartnerProfileOrThrow(userId);
+  const zone = service_zone || partner.service_area;
 
   const declarations = await prisma.scheduledDeclaration.findMany({
     where: {
-      partnerId: partner.id,
-      status: 'READY',
-      ...(service_zone ? { serviceZone: service_zone } : {}),
+      partner_id: partner.id,
+      ...(zone && { service_area: zone }),
     },
     include: {
-      household: {
-        select: { id: true, address: true, user: { select: { phone: true } } },
-      },
+      household: { include: { user: true } },
     },
-    orderBy: { createdAt: 'asc' },
+    orderBy: { created_at: 'asc' },
   });
 
   const households = declarations.map((d) => ({
     declaration_id: d.id,
     household_id: d.household.id,
+    reference_code: d.household.reference_code,
+    first_name: d.household.first_name,
     address: d.household.address,
     phone: d.household.user.phone,
-    declared_at: d.createdAt,
+    declared_at: d.created_at,
   }));
 
   return {
-    service_zone: service_zone || 'ALL',
+    service_area: zone,
     total_ready_households: households.length,
     households,
   };

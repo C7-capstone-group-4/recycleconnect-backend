@@ -17,8 +17,8 @@ export const generateAndSendOTP = async (phone) => {
         throw new Error(`Please wait ${secondsLeft} seconds before requesting a new OTP.`);
     }
 
-    // Generate OTP
-    const code = process.env.NODE_ENV === 'development' ? '1234' : Math.floor(1000 + Math.random() * 9000).toString();
+    // Generate random OTP
+    const code = Math.floor(1000 + Math.random() * 9000).toString();
 
     // Store the OTP metadata
     otpStore.set(phone, {
@@ -28,20 +28,12 @@ export const generateAndSendOTP = async (phone) => {
         lastSentAt: now,
     });
 
-    console.log(`[OTP SERVICE] 4-digit OTP for ${phone}: ${code}`);
-    return {
-        code,
-        cooldown_seconds: 30,
-    };
+    console.log(`[OTP SERVICE] Generated random OTP for ${phone}: ${code}`);
+    return { code, cooldown_seconds: 30 };
 };
 
 // Verifies OTP with single-use invalidation and max attempt enforcement
 export const verifyOTP = (phone, inputCode) => {
-    // In dev mode, '1234' always passes
-    if (process.env.NODE_ENV === 'development' && inputCode === '1234') {
-        return { valid: true };
-    }
-
     const record = otpStore.get(phone);
 
     // Check if no OTP was requested or already burned
@@ -70,7 +62,7 @@ export const verifyOTP = (phone, inputCode) => {
         };
     }
 
-    // Check incorrect code
+    // Check incorrect code match
     if (record.code != inputCode) {
         record.attempts += 1;
         const attemptRemaining = MAX_ATTEMPTS - record.attempts;

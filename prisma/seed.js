@@ -27,7 +27,7 @@ async function main() {
 
     // Fetch created categories to guarantee valid IDs
     const petCategory = await prisma.materialCategory.findUnique({ where: { name: 'PET Plastics' } });
-    const cansCategory = await prisma.materialCategory.findUnique({ where: { name: 'Aluminum Cans' } });
+    const cansCategory = await prisma.materialCategory.findUnique({ where: { name: 'Aluminium Cans' } });
 
     // Pre-hash test credentials
     const defaultPinHash = await bcrypt.hash('1234', 10);
